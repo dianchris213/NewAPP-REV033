@@ -373,3 +373,49 @@ export function buildWhatsAppLink(
   const phone = normalizePhone(bill.phone);
   return phone ? `https://wa.me/${phone}?text=${text}` : `https://wa.me/?text=${text}`;
 }
+
+/* ── Nominal (amount) input ──────────────────────────────────────────────── */
+
+/** Digits only, capped at 15 digits. Anything else (`-`, `,`, letters) is dropped. */
+export function sanitizeAmountInput(input: unknown): string {
+  return String(input ?? "")
+    .replace(/\D/g, "")
+    .replace(/^0+(?=\d)/, "")
+    .slice(0, 15);
+}
+
+/** Renders digits with Indonesian thousand separators (`5000` → `5.000`). */
+export function formatAmountInput(input: unknown): string {
+  const digits = sanitizeAmountInput(input);
+  return digits ? Number(digits).toLocaleString("id-ID") : "";
+}
+
+/** True only for a canonical dotted amount such as `5.000` or `120.000`. */
+export function isDottedAmount(value: unknown): boolean {
+  return typeof value === "string" && /^\d{1,3}(\.\d{3})*$/.test(value);
+}
+
+export type AmountRejection = "empty" | "invalid" | "range";
+
+/**
+ * Strict gate for the Nominal field. Rejects empty input, negatives, decimals
+ * and special characters instead of silently coercing them to a number.
+ */
+export function validateAmountInput(
+  input: unknown,
+): { ok: true; value: number } | { ok: false; reason: AmountRejection } {
+  const raw = typeof input === "number" ? String(input) : String(input ?? "").trim();
+  if (!raw) return { ok: false, reason: "empty" };
+  if (!/^[\d.]+$/.test(raw)) return { ok: false, reason: "invalid" };
+  if (raw.includes(".") && !isDottedAmount(raw)) return { ok: false, reason: "invalid" };
+  const value = Number(raw.replace(/\./g, ""));
+  if (!Number.isFinite(value) || value <= 0) return { ok: false, reason: "range" };
+  if (value > 1e15) return { ok: false, reason: "range" };
+  return { ok: true, value };
+}
+
+export const AMOUNT_ERROR: Record<AmountRejection, string> = {
+  empty: "Nominal wajib diisi.",
+  invalid: "Nominal hanya boleh angka dengan format bertitik, mis. 5.000.",
+  range: "Nominal harus lebih besar dari 0.",
+};
