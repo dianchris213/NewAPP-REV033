@@ -496,14 +496,23 @@ export function BillingSheet({ onClose }: { onClose: () => void }) {
                     className="rounded-2xl bg-surface-container p-3"
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <div className="flex min-w-0 flex-col">
-                        <span className="truncate text-[13px] font-semibold text-on-surface">
-                          {bill.name}
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span
+                          aria-hidden="true"
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-container/40"
+                        >
+                          <Icon name={bill.icon} className="text-[18px] text-primary" />
                         </span>
-                        <span className="text-[11px] text-on-surface-variant">
-                          {`${formatDueDate(bill.dueDate)} · ${RECURRING_LABEL[bill.recurring]}`}
+                        <span className="flex min-w-0 flex-col">
+                          <span className="truncate text-[13px] font-semibold text-on-surface">
+                            {bill.name}
+                          </span>
+                          <span className="text-[11px] text-on-surface-variant">
+                            {`${formatDueDate(bill.dueDate)} · ${RECURRING_LABEL[bill.recurring]}`}
+                          </span>
                         </span>
                       </div>
+
                       <span className="flex shrink-0 flex-col items-end gap-1">
                         <span className="text-[13px] font-bold text-on-surface">
                           {formatIDR(billTotals.total)}
