@@ -239,6 +239,8 @@ export function normalizeBills(input: readonly unknown[]): Bill[] {
       discountMode: candidate.discountMode === "fixed" ? "fixed" : "percent",
       discountValue: candidate.discountValue ?? 0,
       recurring: isRecurringInterval(candidate.recurring) ? candidate.recurring : "none",
+      ...(isBillIcon(candidate.icon) ? { icon: candidate.icon } : {}),
+
       ...(candidate.phone ? { phone: candidate.phone } : {}),
       ...(candidate.note ? { note: candidate.note } : {}),
     });
