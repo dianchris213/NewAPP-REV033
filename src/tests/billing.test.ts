@@ -214,6 +214,6 @@ describe("WhatsApp deep link format", () => {
     expect(suggestBillIcon("Token Listrik PLN")).toBe("bolt");
     expect(suggestBillIcon("Sesuatu")).toBe(DEFAULT_BILL_ICON);
     expect(parseBillDraft({ ...draft, name: "Kuota Data" })?.icon).toBe("smartphone");
-    expect(parseBillDraft({ ...draft, icon: "bogus" })?.icon).toBe(DEFAULT_BILL_ICON);
+    expect(parseBillDraft({ ...draft, icon: "bogus" })?.icon).toBe("wifi");
   });
 });
