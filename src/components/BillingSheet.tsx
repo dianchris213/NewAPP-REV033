@@ -566,6 +566,8 @@ export function BillingSheet({ onClose }: { onClose: () => void }) {
                             discountMode: bill.discountMode,
                             discountValue: String(bill.discountValue),
                             recurring: bill.recurring,
+                            icon: bill.icon,
+
                             phone: bill.phone ?? "",
                             note: bill.note ?? "",
                           });
