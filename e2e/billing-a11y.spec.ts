@@ -40,7 +40,9 @@ test.describe("Tagihan Bulanan — accessibility", () => {
       },
     );
 
-    await page.getByTestId("billing-name").focus();
+    // The icon radiogroup sits between the name field and the amount field.
+    await page.getByTestId("billing-icon-receipt_long").focus();
+
     const order = [
       "billing-amount",
       "billing-due-date",
