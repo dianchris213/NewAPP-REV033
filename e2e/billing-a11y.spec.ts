@@ -34,7 +34,11 @@ test.describe("Tagihan Bulanan — accessibility", () => {
     await page.goto("/settings", { waitUntil: "domcontentloaded" });
     const sheet = page.getByTestId("billing-sheet");
     await openWhenHydrated(
-      () => page.getByRole("button", { name: /tagihan bulanan/i }).first().click(),
+      () =>
+        page
+          .getByRole("button", { name: /tagihan bulanan/i })
+          .first()
+          .click(),
       async () => {
         await expect(sheet).toBeVisible({ timeout: 1_000 });
       },
