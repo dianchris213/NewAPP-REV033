@@ -72,7 +72,7 @@ export function BillingCalendar({ bills, today = new Date() }: { bills: Bill[]; 
     });
   };
 
-  const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>, day: number) => {
+  const onKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, day: number) => {
     const shift = (delta: number) => {
       event.preventDefault();
       const next = new Date(Date.UTC(year, month, day + delta));
