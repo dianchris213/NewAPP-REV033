@@ -202,6 +202,8 @@ export function parseBillDraft(draft: BillDraft): ParsedBill | null {
     discountMode,
     discountValue: clampNumber(draft.discountValue, 0, discountMode === "percent" ? 100 : 1e15),
     recurring: draft.recurring,
+    icon: isBillIcon(draft.icon) ? draft.icon : suggestBillIcon(name),
+
     ...(phone ? { phone } : {}),
     ...(note ? { note } : {}),
   };
