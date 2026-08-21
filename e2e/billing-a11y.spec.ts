@@ -20,14 +20,10 @@ test.describe("Tagihan Bulanan — accessibility", () => {
     await expect(page.getByTestId("billing-summary")).toBeVisible();
     await expect(page.getByTestId("billing-empty")).toBeVisible();
 
-    let violations = await analyzeA11y(page, '[data-testid="billing-sheet"]');
+    const violations = await analyzeA11y(page, '[data-testid="billing-sheet"]');
     expect(violations, JSON.stringify(violations, null, 2)).toEqual([]);
+    await expect(page.getByTestId("billing-icon-group")).toBeVisible();
 
-    // Branding panel adds a colour picker and a template select — audit it too.
-    await page.getByTestId("billing-branding-toggle").click();
-    await expect(page.getByTestId("billing-template-preview")).toBeVisible();
-    violations = await analyzeA11y(page, '[data-testid="billing-sheet"]');
-    expect(violations, JSON.stringify(violations, null, 2)).toEqual([]);
   });
 
   test("form fields follow document order under Tab", async ({ page }) => {
@@ -44,7 +40,9 @@ test.describe("Tagihan Bulanan — accessibility", () => {
       },
     );
 
-    await page.getByTestId("billing-name").focus();
+    // The icon radiogroup sits between the name field and the amount field.
+    await page.getByTestId("billing-icon-receipt_long").focus();
+
     const order = [
       "billing-amount",
       "billing-due-date",

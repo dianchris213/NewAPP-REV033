@@ -11,6 +11,8 @@ import {
   normalizePhone,
   parseBillDraft,
   parseBillingProfile,
+  suggestBillIcon,
+  DEFAULT_BILL_ICON,
   type Bill,
 } from "@/lib/billing";
 
@@ -159,5 +161,59 @@ describe("WhatsApp reminder", () => {
       new Date("2026-03-08T00:00:00Z"),
     );
     expect(link.startsWith("https://wa.me/?text=")).toBe(true);
+  });
+});
+
+describe("WhatsApp deep link format", () => {
+  const profile = { ...defaultBillingProfile, businessName: "Toko Maju & Co" };
+  const today = new Date("2026-03-08T00:00:00Z");
+
+  it("percent-encodes newlines, spaces and special characters", () => {
+    const tricky: Bill = {
+      ...bill,
+      name: "Sewa 100% #A&B?=+ \"kantor\"",
+      note: "Bayar via BCA/BRI; ref: 50%+10",
+    };
+    const link = buildWhatsAppLink(tricky, profile, today);
+    const query = link.slice(link.indexOf("?text=") + "?text=".length);
+    expect(link).not.toMatch(/[\s"<>]/);
+    expect(query).not.toMatch(/[#&=+]/);
+    expect(query).toContain("%0A");
+    expect(decodeURIComponent(query)).toBe(buildReminderMessage(tricky, profile, today));
+  });
+
+  it("produces a parseable URL whose text round-trips", () => {
+    const url = new URL(buildWhatsAppLink(bill, profile, today));
+    expect(url.protocol).toBe("https:");
+    expect(url.hostname).toBe("wa.me");
+    expect(url.pathname).toBe("/6281234567890");
+    expect(url.searchParams.get("text")).toBe(buildReminderMessage(bill, profile, today));
+  });
+
+  it("omits empty optional fields from the message", () => {
+    const { note: _note, ...noNote } = bill;
+    const message = buildReminderMessage(
+      { ...noNote, taxPercent: 0, discountValue: 0 },
+      { ...defaultBillingProfile },
+      today,
+    );
+    expect(message).not.toContain("Catatan:");
+    expect(message).not.toContain("Diskon:");
+    expect(message).not.toContain("Pajak");
+    expect(message).toContain("Tim Keuangan");
+  });
+
+  it("keeps the link recipient-less and valid for an invalid phone", () => {
+    const url = new URL(buildWhatsAppLink({ ...bill, phone: "12" }, profile, today));
+    expect(url.pathname).toBe("/");
+    expect(url.searchParams.get("text")).toBeTruthy();
+  });
+
+  it("suggests an icon from the bill name and falls back safely", () => {
+    expect(suggestBillIcon("Tagihan Internet IndiHome")).toBe("wifi");
+    expect(suggestBillIcon("Token Listrik PLN")).toBe("bolt");
+    expect(suggestBillIcon("Sesuatu")).toBe(DEFAULT_BILL_ICON);
+    expect(parseBillDraft({ ...draft, name: "Kuota Data" })?.icon).toBe("smartphone");
+    expect(parseBillDraft({ ...draft, icon: "bogus" })?.icon).toBe("wifi");
   });
 });

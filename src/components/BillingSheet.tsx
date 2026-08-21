@@ -1,9 +1,12 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { Icon } from "./Icon";
+import { BillingCalendar } from "./BillingCalendar";
+
 import { useModalA11y } from "@/hooks/use-modal-a11y";
 import { toastError, toastSuccess } from "@/lib/toast-a11y";
 import { formatIDR, useApp } from "@/lib/app-store";
 import {
+  BILL_ICONS,
   billStatus,
   buildWhatsAppLink,
   computeTotals,
@@ -11,16 +14,13 @@ import {
   formatDueDate,
   RECURRING_LABEL,
   STATUS_LABEL,
-  TEMPLATE_LABEL,
+  suggestBillIcon,
   type BillDraft,
   type DiscountMode,
-  type InvoiceTemplate,
   type RecurringInterval,
 } from "@/lib/billing";
 
 const RECURRING_OPTIONS: RecurringInterval[] = ["none", "weekly", "monthly", "yearly"];
-const TEMPLATE_OPTIONS: InvoiceTemplate[] = ["minimal", "professional"];
-const BRAND_COLORS = ["#2563eb", "#0f766e", "#b45309", "#be123c", "#4338ca", "#111827"];
 
 const field =
   "h-12 w-full rounded-2xl border border-outline-variant/30 bg-surface-container px-4 text-[14px] text-on-surface outline-none focus-visible:ring-2 focus-visible:ring-primary/60";
@@ -50,14 +50,16 @@ const STATUS_TONE: Record<string, string> = {
  * `computeTotals` used when persisting, so the grand total can never drift.
  */
 export function BillingSheet({ onClose }: { onClose: () => void }) {
-  const { bills, billingProfile, addBill, updateBill, deleteBill, markBillPaid, setBillingProfile } =
-    useApp();
+  const { bills, billingProfile, addBill, updateBill, deleteBill, markBillPaid } = useApp();
   const ref = useModalA11y<HTMLDivElement>(true, onClose);
   const [draft, setDraft] = useState<BillDraft>(emptyDraft);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | undefined>(undefined);
   const [status, setStatus] = useState("");
-  const [showBranding, setShowBranding] = useState(false);
+  /** Digits only; rendered with Indonesian thousand separators. */
+  const amountDigits = String(draft.amount ?? "").replace(/\D/g, "");
+  const activeIcon = draft.icon ?? suggestBillIcon(draft.name);
+
 
   const totals = useMemo(
     () =>
@@ -171,21 +173,54 @@ export function BillingSheet({ onClose }: { onClose: () => void }) {
             />
           </label>
 
+          <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+            <legend className="mb-1 p-0 text-meta text-on-surface-variant/80">Ikon tagihan</legend>
+            <div
+              role="radiogroup"
+              aria-label="Ikon tagihan"
+              data-testid="billing-icon-group"
+              className="flex flex-wrap gap-2"
+            >
+              {BILL_ICONS.map((option) => {
+                const active = activeIcon === option.name;
+                return (
+                  <button
+                    key={option.name}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    aria-label={option.label}
+                    title={option.label}
+                    data-testid={`billing-icon-${option.name}`}
+                    onClick={() => set({ icon: option.name })}
+                    className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-colors focus-visible:ring-2 focus-visible:ring-primary/60 ${
+                      active
+                        ? "border-primary bg-primary-container/50 text-primary"
+                        : "border-outline-variant/30 bg-surface-container text-on-surface-variant"
+                    }`}
+                  >
+                    <Icon name={option.name} className="text-[18px]" />
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
+
           <div className="grid grid-cols-2 gap-2">
             <label className="flex flex-col gap-1">
               <span className="text-meta text-on-surface-variant/80">Nominal (Rp)</span>
               <input
-                type="number"
                 inputMode="numeric"
-                min={1}
-                step={1}
-                value={draft.amount}
+                autoComplete="off"
+                placeholder="0"
+                value={amountDigits ? Number(amountDigits).toLocaleString("id-ID") : ""}
                 aria-label="Nominal tagihan"
                 data-testid="billing-amount"
-                onChange={(e) => set({ amount: e.target.value })}
-                className={field}
+                onChange={(e) => set({ amount: e.target.value.replace(/\D/g, "").slice(0, 15) })}
+                className={`${field} text-right font-bold tabular-nums`}
               />
             </label>
+
             <label className="flex flex-col gap-1">
               <span className="text-meta text-on-surface-variant/80">Tanggal jatuh tempo</span>
               <input
@@ -346,130 +381,8 @@ export function BillingSheet({ onClose }: { onClose: () => void }) {
           {status}
         </p>
 
-        <section className="mt-5">
-          <button
-            type="button"
-            data-testid="billing-branding-toggle"
-            aria-expanded={showBranding}
-            aria-controls="billing-branding"
-            onClick={() => setShowBranding((prev) => !prev)}
-            className="flex w-full items-center justify-between rounded-2xl bg-surface-container px-4 py-3 text-left text-[13px] font-semibold text-on-surface focus-visible:ring-2 focus-visible:ring-primary/60"
-          >
-            <span className="flex items-center gap-2">
-              <Icon name="palette" className="text-[18px] text-primary" />
-              Template &amp; Branding Invoice
-            </span>
-            <Icon
-              name={showBranding ? "expand_less" : "expand_more"}
-              className="text-[18px] text-on-surface-variant"
-            />
-          </button>
+        <BillingCalendar bills={bills} />
 
-          <div id="billing-branding" hidden={!showBranding} className="mt-3 flex flex-col gap-3">
-            <label className="flex flex-col gap-1">
-              <span className="text-meta text-on-surface-variant/80">Nama usaha</span>
-              <input
-                value={billingProfile.businessName}
-                maxLength={60}
-                aria-label="Nama usaha"
-                data-testid="billing-business-name"
-                onChange={(e) => setBillingProfile({ businessName: e.target.value })}
-                className={field}
-              />
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              <label className="flex flex-col gap-1">
-                <span className="text-meta text-on-surface-variant/80">Inisial logo</span>
-                <input
-                  value={billingProfile.logoText}
-                  maxLength={4}
-                  aria-label="Inisial logo"
-                  data-testid="billing-logo-text"
-                  onChange={(e) => setBillingProfile({ logoText: e.target.value })}
-                  className={field}
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-meta text-on-surface-variant/80">Layout template</span>
-                <select
-                  value={billingProfile.template}
-                  aria-label="Layout template invoice"
-                  data-testid="billing-template"
-                  onChange={(e) =>
-                    setBillingProfile({ template: e.target.value as InvoiceTemplate })
-                  }
-                  className={field}
-                >
-                  {TEMPLATE_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {TEMPLATE_LABEL[option]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <div role="radiogroup" aria-label="Warna brand" className="flex flex-wrap gap-2">
-              {BRAND_COLORS.map((color) => {
-                const active = billingProfile.brandColor === color;
-                return (
-                  <button
-                    key={color}
-                    type="button"
-                    role="radio"
-                    aria-checked={active}
-                    aria-label={`Warna brand ${color}`}
-                    data-testid={`billing-brand-${color.slice(1)}`}
-                    onClick={() => setBillingProfile({ brandColor: color })}
-                    style={{ backgroundColor: color }}
-                    className={`h-9 w-9 rounded-full transition-transform focus-visible:ring-2 focus-visible:ring-primary/60 ${
-                      active ? "scale-110 ring-2 ring-primary" : ""
-                    }`}
-                  />
-                );
-              })}
-            </div>
-            <label className="flex flex-col gap-1">
-              <span className="text-meta text-on-surface-variant/80">Catatan kaki invoice</span>
-              <input
-                value={billingProfile.footerNote}
-                maxLength={120}
-                aria-label="Catatan kaki invoice"
-                data-testid="billing-footer-note"
-                onChange={(e) => setBillingProfile({ footerNote: e.target.value })}
-                className={field}
-              />
-            </label>
-            <div
-              data-testid="billing-template-preview"
-              className={`rounded-2xl border border-outline-variant/30 p-4 ${
-                billingProfile.template === "professional" ? "bg-surface-container" : "bg-surface"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <span
-                  aria-hidden="true"
-                  style={{ backgroundColor: billingProfile.brandColor }}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl text-[12px] font-bold text-white"
-                >
-                  {billingProfile.logoText || "IN"}
-                </span>
-                <span className="flex flex-col">
-                  <span className="text-[13px] font-semibold text-on-surface">
-                    {billingProfile.businessName || "Nama Usaha Anda"}
-                  </span>
-                  <span className="text-[11px] text-on-surface-variant">
-                    {`Template ${TEMPLATE_LABEL[billingProfile.template]}`}
-                  </span>
-                </span>
-              </div>
-              {billingProfile.footerNote ? (
-                <p className="mt-2 m-0 text-[11px] text-on-surface-variant">
-                  {billingProfile.footerNote}
-                </p>
-              ) : null}
-            </div>
-          </div>
-        </section>
 
         <section className="mt-5">
           <h4 className="m-0 mb-2 text-label uppercase text-primary">Daftar Tagihan</h4>
@@ -496,14 +409,23 @@ export function BillingSheet({ onClose }: { onClose: () => void }) {
                     className="rounded-2xl bg-surface-container p-3"
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <div className="flex min-w-0 flex-col">
-                        <span className="truncate text-[13px] font-semibold text-on-surface">
-                          {bill.name}
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span
+                          aria-hidden="true"
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-container/40"
+                        >
+                          <Icon name={bill.icon} className="text-[18px] text-primary" />
                         </span>
-                        <span className="text-[11px] text-on-surface-variant">
-                          {`${formatDueDate(bill.dueDate)} · ${RECURRING_LABEL[bill.recurring]}`}
+                        <span className="flex min-w-0 flex-col">
+                          <span className="truncate text-[13px] font-semibold text-on-surface">
+                            {bill.name}
+                          </span>
+                          <span className="text-[11px] text-on-surface-variant">
+                            {`${formatDueDate(bill.dueDate)} · ${RECURRING_LABEL[bill.recurring]}`}
+                          </span>
                         </span>
                       </div>
+
                       <span className="flex shrink-0 flex-col items-end gap-1">
                         <span className="text-[13px] font-bold text-on-surface">
                           {formatIDR(billTotals.total)}
@@ -557,6 +479,8 @@ export function BillingSheet({ onClose }: { onClose: () => void }) {
                             discountMode: bill.discountMode,
                             discountValue: String(bill.discountValue),
                             recurring: bill.recurring,
+                            icon: bill.icon,
+
                             phone: bill.phone ?? "",
                             note: bill.note ?? "",
                           });
