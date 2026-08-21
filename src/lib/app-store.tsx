@@ -286,6 +286,9 @@ type AppState = {
    */
   markBillPaid: (id: string) => boolean;
   setBillingProfile: (patch: Partial<BillingProfile>) => void;
+  /** Last icon picked in the Tagihan Bulanan sheet; restored on reopen. */
+  billIconPref: string;
+  setBillIconPref: (icon: string) => void;
 
   locked: boolean;
 
@@ -334,6 +337,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [locked, setLocked] = useState(false);
   const [bills, setBills] = useState<Bill[]>([]);
   const [billingProfile, setBillingProfileState] = useState<BillingProfile>(defaultBillingProfile);
+  const [billIconPref, setBillIconPrefState] = useState<string>(DEFAULT_BILL_ICON);
+
+  const setBillIconPref = useCallback((icon: string) => {
+    setBillIconPrefState(isBillIcon(icon) ? icon : DEFAULT_BILL_ICON);
+  }, []);
 
   const addBill = useCallback((draft: BillDraft) => {
     const parsed = parseBillDraft(draft);
@@ -826,6 +834,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           categories?: Category[];
           bills?: unknown;
           billingProfile?: unknown;
+          billIconPref?: unknown;
         };
         setUser(parsed.user ?? null);
         // Only genuine, user-entered rows are restored — no demo data is
@@ -846,6 +855,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setCategories(normalizeCategories<Category>(parsed.categories));
         if (Array.isArray(parsed.bills)) setBills(normalizeBills(parsed.bills));
         if (parsed.billingProfile) setBillingProfileState(parseBillingProfile(parsed.billingProfile));
+        if (isBillIcon(parsed.billIconPref)) setBillIconPrefState(parsed.billIconPref);
         if (parsed.settings?.biometricLock) setLocked(true);
       } else {
         setTransactions(seedTransactions());
@@ -876,6 +886,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             categories,
             bills,
             billingProfile,
+            billIconPref,
           }),
         );
       } catch {
@@ -894,6 +905,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     categories,
     bills,
     billingProfile,
+    billIconPref,
   ]);
 
   // Apply the theme switch to the document so the toggle is visually real.
@@ -1025,6 +1037,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       deleteBill,
       markBillPaid,
       setBillingProfile,
+      billIconPref,
+      setBillIconPref,
       locked,
       unlockApp,
       lockApp,
@@ -1083,6 +1097,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       deleteBill,
       markBillPaid,
       setBillingProfile,
+      billIconPref,
+      setBillIconPref,
       locked,
       unlockApp,
       lockApp,
