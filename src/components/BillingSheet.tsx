@@ -379,7 +379,7 @@ export function BillingSheet({ onClose }: { onClose: () => void }) {
           {status}
         </p>
 
-
+        <BillingCalendar bills={bills} />
 
 
         <section className="mt-5">
