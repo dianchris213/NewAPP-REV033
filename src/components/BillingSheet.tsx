@@ -1,11 +1,13 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Icon } from "./Icon";
 import { BillingCalendar } from "./BillingCalendar";
+import { DueDatePicker } from "./DueDatePicker";
 
 import { useModalA11y } from "@/hooks/use-modal-a11y";
 import { toastError, toastSuccess } from "@/lib/toast-a11y";
 import { formatIDR, useApp } from "@/lib/app-store";
 import {
+  AMOUNT_ERROR,
   BILL_ICONS,
   billStatus,
   buildWhatsAppLink,
@@ -14,7 +16,10 @@ import {
   formatDueDate,
   RECURRING_LABEL,
   STATUS_LABEL,
+  formatAmountInput,
+  sanitizeAmountInput,
   suggestBillIcon,
+  validateAmountInput,
   type BillDraft,
   type DiscountMode,
   type RecurringInterval,
@@ -50,15 +55,31 @@ const STATUS_TONE: Record<string, string> = {
  * `computeTotals` used when persisting, so the grand total can never drift.
  */
 export function BillingSheet({ onClose }: { onClose: () => void }) {
-  const { bills, billingProfile, addBill, updateBill, deleteBill, markBillPaid } = useApp();
+  const {
+    bills,
+    billingProfile,
+    addBill,
+    updateBill,
+    deleteBill,
+    markBillPaid,
+    billIconPref,
+    setBillIconPref,
+  } = useApp();
   const ref = useModalA11y<HTMLDivElement>(true, onClose);
   const [draft, setDraft] = useState<BillDraft>(emptyDraft);
+  const [amountError, setAmountError] = useState<string | undefined>(undefined);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | undefined>(undefined);
   const [status, setStatus] = useState("");
   /** Digits only; rendered with Indonesian thousand separators. */
-  const amountDigits = String(draft.amount ?? "").replace(/\D/g, "");
-  const activeIcon = draft.icon ?? suggestBillIcon(draft.name);
+  const amountDigits = sanitizeAmountInput(draft.amount);
+  const activeIcon = draft.icon ?? (draft.name ? suggestBillIcon(draft.name) : billIconPref);
+
+  /** The stored icon preference is restored whenever the sheet is reopened. */
+  useEffect(() => {
+    setDraft((prev) => (prev.icon ? prev : { ...prev, icon: billIconPref }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
 
   const totals = useMemo(
@@ -97,6 +118,15 @@ export function BillingSheet({ onClose }: { onClose: () => void }) {
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
+    const amount = validateAmountInput(formatAmountInput(draft.amount));
+    if (!amount.ok) {
+      const message = AMOUNT_ERROR[amount.reason];
+      setAmountError(message);
+      setError(message);
+      announce(message, false);
+      return;
+    }
+    setAmountError(undefined);
     const ok = editingId ? updateBill(editingId, draft) : addBill(draft);
     if (!ok) {
       const message = "Periksa nama, nominal, dan tanggal jatuh tempo tagihan.";
@@ -105,7 +135,7 @@ export function BillingSheet({ onClose }: { onClose: () => void }) {
       return;
     }
     announce(editingId ? "Tagihan diperbarui." : "Tagihan ditambahkan.", true);
-    setDraft(emptyDraft);
+    setDraft({ ...emptyDraft, icon: activeIcon });
     setEditingId(null);
   };
 
@@ -121,7 +151,7 @@ export function BillingSheet({ onClose }: { onClose: () => void }) {
         aria-label="Tagihan Bulanan"
         data-testid="billing-sheet"
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[88vh] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-[26px] border-t border-outline-variant/20 bg-surface-container-high p-5 pb-[calc(env(safe-area-inset-bottom,0px)+120px)] shadow-2xl"
+        className="no-scrollbar max-h-[88vh] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-[26px] border-t border-outline-variant/20 bg-surface-container-high p-5 pb-[calc(env(safe-area-inset-bottom,0px)+120px)] shadow-2xl"
       >
         <span
           aria-hidden="true"
@@ -192,7 +222,10 @@ export function BillingSheet({ onClose }: { onClose: () => void }) {
                     aria-label={option.label}
                     title={option.label}
                     data-testid={`billing-icon-${option.name}`}
-                    onClick={() => set({ icon: option.name })}
+                    onClick={() => {
+                      set({ icon: option.name });
+                      setBillIconPref(option.name);
+                    }}
                     className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-colors focus-visible:ring-2 focus-visible:ring-primary/60 ${
                       active
                         ? "border-primary bg-primary-container/50 text-primary"
@@ -213,25 +246,39 @@ export function BillingSheet({ onClose }: { onClose: () => void }) {
                 inputMode="numeric"
                 autoComplete="off"
                 placeholder="0"
-                value={amountDigits ? Number(amountDigits).toLocaleString("id-ID") : ""}
+                value={formatAmountInput(amountDigits)}
+                required
                 aria-label="Nominal tagihan"
+                aria-invalid={!!amountError}
+                aria-describedby={amountError ? "billing-amount-error" : undefined}
                 data-testid="billing-amount"
-                onChange={(e) => set({ amount: e.target.value.replace(/\D/g, "").slice(0, 15) })}
-                className={`${field} text-right font-bold tabular-nums`}
+                onChange={(e) => {
+                  const digits = sanitizeAmountInput(e.target.value);
+                  const check = validateAmountInput(formatAmountInput(digits));
+                  setAmountError(check.ok || !digits ? undefined : AMOUNT_ERROR[check.reason]);
+                  set({ amount: digits });
+                }}
+                onBlur={() => {
+                  const check = validateAmountInput(formatAmountInput(amountDigits));
+                  setAmountError(check.ok ? undefined : AMOUNT_ERROR[check.reason]);
+                }}
+                className={`${field} text-right font-bold tabular-nums ${
+                  amountError ? "border-error" : ""
+                }`}
               />
+              {amountError ? (
+                <span
+                  id="billing-amount-error"
+                  role="alert"
+                  data-testid="billing-amount-error"
+                  className="text-[11px] font-semibold text-error"
+                >
+                  {amountError}
+                </span>
+              ) : null}
             </label>
 
-            <label className="flex flex-col gap-1">
-              <span className="text-meta text-on-surface-variant/80">Tanggal jatuh tempo</span>
-              <input
-                type="date"
-                value={draft.dueDate}
-                aria-label="Tanggal jatuh tempo"
-                data-testid="billing-due-date"
-                onChange={(e) => set({ dueDate: e.target.value })}
-                className={field}
-              />
-            </label>
+            <DueDatePicker value={draft.dueDate} onChange={(dueDate) => set({ dueDate })} />
           </div>
 
           <label className="flex flex-col gap-1">
