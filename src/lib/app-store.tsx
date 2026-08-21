@@ -13,6 +13,9 @@ import { persistWallet, WalletApiError } from "./wallet-api";
 import { captureApiError } from "./monitoring";
 import {
   createBillId,
+  DEFAULT_BILL_ICON,
+  isBillIcon,
+
   defaultBillingProfile,
   nextDueDate,
   normalizeBills,
