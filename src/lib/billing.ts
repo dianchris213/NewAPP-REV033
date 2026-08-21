@@ -26,12 +26,47 @@ export type Bill = {
   /** Percentage 0..100 when mode is "percent", otherwise rupiah. */
   discountValue: number;
   recurring: RecurringInterval;
+  /** Material Symbols icon name from `BILL_ICONS`. */
+  icon: string;
   /** Optional WhatsApp destination in international format, digits only. */
   phone?: string;
   note?: string;
   paid: boolean;
   createdAt: string;
 };
+
+/** Curated icon set for bill names, with the keywords that suggest each one. */
+export const BILL_ICONS: readonly { name: string; label: string; keywords: string[] }[] = [
+  { name: "wifi", label: "Internet / WiFi", keywords: ["internet", "wifi", "indihome", "biznet"] },
+  { name: "bolt", label: "Listrik", keywords: ["listrik", "pln", "token"] },
+  { name: "water_drop", label: "Air / PDAM", keywords: ["air", "pdam", "water"] },
+  { name: "smartphone", label: "Pulsa / Paket data", keywords: ["pulsa", "kuota", "data", "hp"] },
+  { name: "live_tv", label: "TV / Streaming", keywords: ["tv", "netflix", "spotify", "streaming", "langganan"] },
+  { name: "home", label: "Sewa / Kontrakan", keywords: ["sewa", "kontrakan", "rumah", "kos"] },
+  { name: "directions_car", label: "Kendaraan", keywords: ["mobil", "motor", "kendaraan", "parkir"] },
+  { name: "credit_card", label: "Kartu kredit / Cicilan", keywords: ["kartu", "kredit", "cicilan", "pinjaman", "angsuran"] },
+  { name: "school", label: "Pendidikan", keywords: ["sekolah", "kuliah", "spp", "kursus", "les"] },
+  { name: "local_hospital", label: "Kesehatan / Asuransi", keywords: ["bpjs", "asuransi", "kesehatan", "dokter"] },
+  { name: "shopping_cart", label: "Belanja", keywords: ["belanja", "groceries", "toko"] },
+  { name: "receipt_long", label: "Tagihan lain", keywords: [] },
+];
+
+export const DEFAULT_BILL_ICON = "receipt_long";
+
+export function isBillIcon(value: unknown): value is string {
+  return typeof value === "string" && BILL_ICONS.some((icon) => icon.name === value);
+}
+
+/** Picks the icon whose keywords best match the bill name. */
+export function suggestBillIcon(name: unknown): string {
+  const text = typeof name === "string" ? name.toLowerCase() : "";
+  if (!text) return DEFAULT_BILL_ICON;
+  for (const icon of BILL_ICONS) {
+    if (icon.keywords.some((keyword) => text.includes(keyword))) return icon.name;
+  }
+  return DEFAULT_BILL_ICON;
+}
+
 
 export type BillingProfile = {
   businessName: string;
