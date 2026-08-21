@@ -171,21 +171,54 @@ export function BillingSheet({ onClose }: { onClose: () => void }) {
             />
           </label>
 
+          <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+            <legend className="mb-1 p-0 text-meta text-on-surface-variant/80">Ikon tagihan</legend>
+            <div
+              role="radiogroup"
+              aria-label="Ikon tagihan"
+              data-testid="billing-icon-group"
+              className="flex flex-wrap gap-2"
+            >
+              {BILL_ICONS.map((option) => {
+                const active = activeIcon === option.name;
+                return (
+                  <button
+                    key={option.name}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    aria-label={option.label}
+                    title={option.label}
+                    data-testid={`billing-icon-${option.name}`}
+                    onClick={() => set({ icon: option.name })}
+                    className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-colors focus-visible:ring-2 focus-visible:ring-primary/60 ${
+                      active
+                        ? "border-primary bg-primary-container/50 text-primary"
+                        : "border-outline-variant/30 bg-surface-container text-on-surface-variant"
+                    }`}
+                  >
+                    <Icon name={option.name} className="text-[18px]" />
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
+
           <div className="grid grid-cols-2 gap-2">
             <label className="flex flex-col gap-1">
               <span className="text-meta text-on-surface-variant/80">Nominal (Rp)</span>
               <input
-                type="number"
                 inputMode="numeric"
-                min={1}
-                step={1}
-                value={draft.amount}
+                autoComplete="off"
+                placeholder="0"
+                value={amountDigits ? Number(amountDigits).toLocaleString("id-ID") : ""}
                 aria-label="Nominal tagihan"
                 data-testid="billing-amount"
-                onChange={(e) => set({ amount: e.target.value })}
-                className={field}
+                onChange={(e) => set({ amount: e.target.value.replace(/\D/g, "").slice(0, 15) })}
+                className={`${field} text-right font-bold tabular-nums`}
               />
             </label>
+
             <label className="flex flex-col gap-1">
               <span className="text-meta text-on-surface-variant/80">Tanggal jatuh tempo</span>
               <input
