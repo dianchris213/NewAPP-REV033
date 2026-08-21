@@ -4,6 +4,7 @@ import { useModalA11y } from "@/hooks/use-modal-a11y";
 import { toastError, toastSuccess } from "@/lib/toast-a11y";
 import { formatIDR, useApp } from "@/lib/app-store";
 import {
+  BILL_ICONS,
   billStatus,
   buildWhatsAppLink,
   computeTotals,
@@ -11,16 +12,13 @@ import {
   formatDueDate,
   RECURRING_LABEL,
   STATUS_LABEL,
-  TEMPLATE_LABEL,
+  suggestBillIcon,
   type BillDraft,
   type DiscountMode,
-  type InvoiceTemplate,
   type RecurringInterval,
 } from "@/lib/billing";
 
 const RECURRING_OPTIONS: RecurringInterval[] = ["none", "weekly", "monthly", "yearly"];
-const TEMPLATE_OPTIONS: InvoiceTemplate[] = ["minimal", "professional"];
-const BRAND_COLORS = ["#2563eb", "#0f766e", "#b45309", "#be123c", "#4338ca", "#111827"];
 
 const field =
   "h-12 w-full rounded-2xl border border-outline-variant/30 bg-surface-container px-4 text-[14px] text-on-surface outline-none focus-visible:ring-2 focus-visible:ring-primary/60";
@@ -50,14 +48,16 @@ const STATUS_TONE: Record<string, string> = {
  * `computeTotals` used when persisting, so the grand total can never drift.
  */
 export function BillingSheet({ onClose }: { onClose: () => void }) {
-  const { bills, billingProfile, addBill, updateBill, deleteBill, markBillPaid, setBillingProfile } =
-    useApp();
+  const { bills, billingProfile, addBill, updateBill, deleteBill, markBillPaid } = useApp();
   const ref = useModalA11y<HTMLDivElement>(true, onClose);
   const [draft, setDraft] = useState<BillDraft>(emptyDraft);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | undefined>(undefined);
   const [status, setStatus] = useState("");
-  const [showBranding, setShowBranding] = useState(false);
+  /** Digits only; rendered with Indonesian thousand separators. */
+  const amountDigits = String(draft.amount ?? "").replace(/\D/g, "");
+  const activeIcon = draft.icon ?? suggestBillIcon(draft.name);
+
 
   const totals = useMemo(
     () =>
