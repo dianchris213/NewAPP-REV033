@@ -163,7 +163,9 @@ export type BillDraft = {
   discountMode: DiscountMode;
   discountValue: string | number;
   recurring: RecurringInterval;
+  icon?: string;
   phone?: string;
+
   note?: string;
 };
 
