@@ -328,3 +328,27 @@ Edge-case suites added:
 - `e2e/category-filter-edge-cases.spec.ts` — the same edge cases in the browser, including a regression guard that exactly one "Reset filter" control is ever rendered.
 
 Duplicate removed: the category filter summary row rendered a second "Reset filter" button next to the toolbar one. The row is now a pure `role="status"` count (`N/M`); the single reset lives in the filter toolbar (`category-reset-filter`). Recommendation kept the toolbar button because it sits in the natural Tab order right after the filter controls and is present for every active filter, not only when rows are hidden. A review of the other screens found no further duplicated actions — `wallet-filter-reset` (Sumber Dana) and `tx-reset-button` (Semua Transaksi) are single controls on separate surfaces.
+
+## REV032 — Tagihan Bulanan, focus/hover baselines, axe & CI cache
+
+Feature:
+
+- `src/lib/billing.ts` — pure billing domain: integer Rupiah math (`computeTotals` applies the discount first, then tax, and clamps to `>= 0`), strict draft validation (`parseBillDraft`), phone normalisation to `62…`, recurring roll-forward (`nextDueDate`, clamping 31 Jan → 28/29 Feb), status derivation and the deterministic WhatsApp reminder text/deep link.
+- `src/lib/app-store.tsx` — `bills` + `billingProfile` state, add/update/delete/`markPaid` (recurring bills roll to the next due date instead of being archived), persisted to `localStorage` behind the same sanitising loaders as the rest of the store.
+- `src/components/BillingSheet.tsx` — management sheet: amount, due date, recurring interval, tax %, percent/fixed discount, live totals breakdown, focusable summary items (Tagihan / Belum lunas / Terlambat), invoice template + branding (business name, logo text, brand colour, footer note) with a live preview, and a WhatsApp reminder action per bill.
+- `src/routes/settings.tsx` — “Tagihan Bulanan” entry point in the Data group with an unpaid-count status label.
+
+Tests:
+
+- `src/tests/billing.test.ts` — 17 unit tests covering discount/tax ordering, clamping, `NaN` inputs, validation rejections, persisted-row sanitising, the recurring calendar and the reminder link.
+- `e2e/category-focus-hover-visuals.spec.ts` — focus **and** hover baselines for the active Jenis filter, the first row of an active filter, the collapse toggle ring, and the billing summary item.
+- `e2e/category-filter-axe.spec.ts` — axe audits for the filter controls, the no-results and empty states, plus Tab / Shift+Tab focus-order assertions.
+- `e2e/billing-a11y.spec.ts` — axe audits for the billing sheet (including the branding panel) and its Tab order.
+
+Config:
+
+- `playwright.config.ts` — `retries: 2` on CI / `1` locally, `trace: "retain-on-failure"`, and a tighter `maxDiffPixelRatio: 0.005` so a lost focus ring fails.
+- `e2e/fixtures.ts` — console logs, page errors and failed requests are attached to the report for failed attempts only.
+- `.github/workflows/ci.yml` — `actions/cache` for `~/.bun/install/cache` + `node_modules` keyed on `bun.lock` (with restore-keys), and a separate cache for `~/.cache/ms-playwright`; `bun install --frozen-lockfile` still reconciles the tree, so caching cannot change results.
+
+Note: the four new visual baselines are generated on the first `bun run e2e:update` run (this sandbox has no browser libraries, so they are not committed yet).
